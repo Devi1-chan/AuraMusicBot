@@ -28,7 +28,6 @@ ffmpeg_options = {
 queues = {}   # guild_id: [(stream_url, title, watch_url)]
 history = {}  # guild_id: [(stream_url, title, watch_url)]
 
-
 class MusicControls(View):
     def __init__(self, vc, guild_id):
         super().__init__(timeout=None)
@@ -72,13 +71,14 @@ class MusicControls(View):
                             info = ydl.extract_info(watch_url, download=False)
                             related = info.get("related_videos", [])
                             if related:
-                                next_id = related[0]["id"]
-                                autoplay_url = f"https://www.youtube.com/watch?v={next_id}"
-                                next_info = ydl.extract_info(autoplay_url, download=False)
-                                next_stream_url = next_info["url"]
-                                next_title = next_info.get("title", "AutoTrack")
-                                queues.setdefault(self.guild_id, []).append((next_stream_url, next_title, autoplay_url))
-                                self.play_next()
+                                next_id = related[0].get("id")
+                                if next_id:
+                                    autoplay_url = f"https://www.youtube.com/watch?v={next_id}"
+                                    next_info = ydl.extract_info(autoplay_url, download=False)
+                                    next_stream_url = next_info["url"]
+                                    next_title = next_info.get("title", "AutoTrack")
+                                    queues.setdefault(self.guild_id, []).append((next_stream_url, next_title, autoplay_url))
+                                    self.play_next()
                     except Exception as e:
                         print(f"[Autoplay Error] {e}")
 
@@ -149,11 +149,9 @@ class MusicControls(View):
         self.update_styles()
         await interaction.response.edit_message(view=self)
 
-
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
-
 
 @bot.event
 async def on_message(message):
@@ -178,7 +176,7 @@ async def on_message(message):
             await message.channel.send("❌ Not connected to VC.")
 
     elif content.startswith("aura play"):
-        query = content.replace("aura play", "").strip()
+        query = message.content[len("aura play"):].strip()
         if not query:
             await message.channel.send("❓ Provide a YouTube link or search.")
             return
@@ -197,7 +195,7 @@ async def on_message(message):
                 if "entries" in info:
                     info = info["entries"][0]
                 stream_url = info["url"]
-                watch_url = f"https://www.youtube.com/watch?v={info['id']}"
+                watch_url = info.get("webpage_url", f"https://www.youtube.com/watch?v={info.get('id')}")
                 title = info.get("title", "Unknown Title")
         except Exception as e:
             await message.channel.send(f"❌ Could not play: `{e}`")
@@ -213,8 +211,6 @@ async def on_message(message):
         else:
             await message.channel.send(f"✅ Queued: **{title}**")
 
-
 bot.run(TOKEN)
-
 
 
