@@ -1,2 +1,5 @@
-discord.py==2.3.2
+discord.py
 yt-dlp
+beautifulsoup4
+lxml
+requests
