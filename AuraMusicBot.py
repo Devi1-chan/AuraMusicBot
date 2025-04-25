@@ -17,7 +17,7 @@ ytdl_format_options = {
     'no_warnings': True,
     'noplaylist': True,
     'source_address': '0.0.0.0',
-    'cookiefile': 'cookies.txt'
+    'cookiefile': 'cookies.txt' #cookies here
 }
 
 ffmpeg_options = {
@@ -35,7 +35,6 @@ class MusicControls(View):
         self.guild_id = guild_id
         self.loop_one = False
         self.loop_all = False
-        self.autoplay = False
         self.update_styles()
 
     def update_styles(self):
@@ -44,8 +43,6 @@ class MusicControls(View):
                 child.style = discord.ButtonStyle.blurple if self.loop_one else discord.ButtonStyle.gray
             elif child.label == "📃 Playlist Loop":
                 child.style = discord.ButtonStyle.blurple if self.loop_all else discord.ButtonStyle.gray
-            elif child.label == "▶️ Autoplay":
-                child.style = discord.ButtonStyle.blurple if self.autoplay else discord.ButtonStyle.gray
 
     def play_next(self):
         q = queues.get(self.guild_id, [])
@@ -56,6 +53,9 @@ class MusicControls(View):
         history.setdefault(self.guild_id, []).append((stream_url, title, watch_url))
 
         def after_playing(error):
+            if error:
+                print(f"[Playback Error] {error}")
+
             if self.loop_one:
                 self.vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=stream_url, **ffmpeg_options), after=after_playing)
             elif self.loop_all:
@@ -65,22 +65,6 @@ class MusicControls(View):
                 queues[self.guild_id].pop(0)
                 if queues[self.guild_id]:
                     self.play_next()
-                elif self.autoplay:
-                    try:
-                        with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
-                            info = ydl.extract_info(watch_url, download=False)
-                            related = info.get("related_videos", [])
-                            if related:
-                                next_id = related[0].get("id")
-                                if next_id:
-                                    autoplay_url = f"https://www.youtube.com/watch?v={next_id}"
-                                    next_info = ydl.extract_info(autoplay_url, download=False)
-                                    next_stream_url = next_info["url"]
-                                    next_title = next_info.get("title", "AutoTrack")
-                                    queues.setdefault(self.guild_id, []).append((next_stream_url, next_title, autoplay_url))
-                                    self.play_next()
-                    except Exception as e:
-                        print(f"[Autoplay Error] {e}")
 
         self.vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=stream_url, **ffmpeg_options), after=after_playing)
 
@@ -142,12 +126,6 @@ class MusicControls(View):
             embed.description = "Queue is empty."
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    @discord.ui.button(label="▶️ Autoplay", style=discord.ButtonStyle.gray, row=2)
-    async def autoplay_button(self, interaction: discord.Interaction, button: Button):
-        self.autoplay = not self.autoplay
-        self.update_styles()
-        await interaction.response.edit_message(view=self)
 
 @bot.event
 async def on_ready():
