@@ -17,15 +17,16 @@ ytdl_format_options = {
     'no_warnings': True,
     'noplaylist': True,
     'source_address': '0.0.0.0',
-    'cookiefile': 'cookies.txt' #Cookies here
+    'cookiefile': 'cookies.txt'
 }
+
 ffmpeg_options = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
 }
 
-queues = {}  # guild_id: [list of (url, title)]
-history = {}  # guild_id: [list of (url, title)]
+queues = {}   # guild_id: [(stream_url, title, watch_url)]
+history = {}  # guild_id: [(stream_url, title, watch_url)]
 
 
 class MusicControls(View):
@@ -52,12 +53,12 @@ class MusicControls(View):
         if not q:
             return
 
-        url, title = q[0]
-        history.setdefault(self.guild_id, []).append((url, title))
+        stream_url, title, watch_url = q[0]
+        history.setdefault(self.guild_id, []).append((stream_url, title, watch_url))
 
         def after_playing(error):
             if self.loop_one:
-                self.vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=url, **ffmpeg_options), after=after_playing)
+                self.vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=stream_url, **ffmpeg_options), after=after_playing)
             elif self.loop_all:
                 queues[self.guild_id].append(queues[self.guild_id].pop(0))
                 self.play_next()
@@ -67,32 +68,30 @@ class MusicControls(View):
                     self.play_next()
                 elif self.autoplay:
                     try:
-                        video_id = url.split("v=")[-1].split("&")[0]
                         with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
-                            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+                            info = ydl.extract_info(watch_url, download=False)
                             related = info.get("related_videos", [])
                             if related:
                                 next_id = related[0]["id"]
                                 autoplay_url = f"https://www.youtube.com/watch?v={next_id}"
                                 next_info = ydl.extract_info(autoplay_url, download=False)
-                                queues.setdefault(self.guild_id, []).append((next_info["url"], next_info.get("title", "AutoTrack")))
+                                next_stream_url = next_info["url"]
+                                next_title = next_info.get("title", "AutoTrack")
+                                queues.setdefault(self.guild_id, []).append((next_stream_url, next_title, autoplay_url))
                                 self.play_next()
                     except Exception as e:
                         print(f"[Autoplay Error] {e}")
-                    except Exception as e:
-                        print(f"[Autoplay Error] {e}")
 
-        self.vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=url, **ffmpeg_options), after=after_playing)
+        self.vc.play(discord.FFmpegPCMAudio(executable=ffmpeg_path, source=stream_url, **ffmpeg_options), after=after_playing)
 
     @discord.ui.button(label="⏮ Prev", style=discord.ButtonStyle.gray, row=0)
     async def prev_button(self, interaction: discord.Interaction, button: Button):
         prev = history.get(self.guild_id, [])
         if prev:
             last = prev.pop()
-            url, title = last
             queues.setdefault(self.guild_id, []).insert(0, last)
             self.vc.stop()
-            await interaction.response.send_message(f"⏮ Playing previous: **{title}**", ephemeral=True)
+            await interaction.response.send_message(f"⏮ Playing previous: **{last[1]}**", ephemeral=True)
         else:
             await interaction.response.send_message("❌ No previous track", ephemeral=True)
 
@@ -136,7 +135,7 @@ class MusicControls(View):
 
         if q:
             desc = ""
-            for i, (_, title) in enumerate(q[:10], start=1):
+            for i, (_, title, _) in enumerate(q[:10], start=1):
                 desc += f"{i}. {title}\n"
             embed.add_field(name="📝 Up Next", value=desc, inline=False)
         else:
@@ -151,9 +150,9 @@ class MusicControls(View):
         await interaction.response.edit_message(view=self)
 
 
-    @bot.event
-    async def on_ready():
-        print(f"Logged in as {bot.user}")
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user}")
 
 
 @bot.event
@@ -197,13 +196,14 @@ async def on_message(message):
                 info = ydl.extract_info(query, download=False)
                 if "entries" in info:
                     info = info["entries"][0]
-                url = info["url"]
+                stream_url = info["url"]
+                watch_url = f"https://www.youtube.com/watch?v={info['id']}"
                 title = info.get("title", "Unknown Title")
         except Exception as e:
             await message.channel.send(f"❌ Could not play: `{e}`")
             return
 
-        queues.setdefault(guild_id, []).append((url, title))
+        queues.setdefault(guild_id, []).append((stream_url, title, watch_url))
 
         if not vc.is_playing():
             view = MusicControls(vc, guild_id)
@@ -215,7 +215,6 @@ async def on_message(message):
 
 
 bot.run(TOKEN)
-
 
 
 
