@@ -159,12 +159,15 @@ async def on_message(message):
             await message.channel.send("❓ Provide a YouTube link or search.")
             return
 
+        # ✅ Send "loading" message ASAP for responsiveness
+        loading = await message.channel.send("⏳ Loading...")
+
         vc = message.guild.voice_client
         if not vc:
             if message.author.voice:
                 vc = await message.author.voice.channel.connect()
             else:
-                await message.channel.send("❌ You're not in a voice channel.")
+                await loading.edit(content="❌ You're not in a voice channel.")
                 return
 
         try:
@@ -176,7 +179,7 @@ async def on_message(message):
                 watch_url = info.get("webpage_url", f"https://www.youtube.com/watch?v={info.get('id')}")
                 title = info.get("title", "Unknown Title")
         except Exception as e:
-            await message.channel.send(f"❌ Could not play: `{e}`")
+            await loading.edit(content=f"❌ Could not play: `{e}`")
             return
 
         queues.setdefault(guild_id, []).append((stream_url, title, watch_url))
@@ -185,10 +188,9 @@ async def on_message(message):
             view = MusicControls(vc, guild_id)
             view.play_next()
             embed = discord.Embed(title="Now Playing 🎶", description=title, color=discord.Color.blurple())
-            await message.channel.send(embed=embed, view=view)
+            await loading.edit(content=None, embed=embed, view=view)
         else:
-            await message.channel.send(f"✅ Queued: **{title}**")
+            await loading.edit(content=f"✅ Queued: **{title}**")
+
 
 bot.run(TOKEN)
-
-
