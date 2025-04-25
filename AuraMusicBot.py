@@ -19,7 +19,6 @@ ytdl_format_options = {
     'source_address': '0.0.0.0',
     'cookiefile': 'cookies.txt' #Cookies here
 }
-
 ffmpeg_options = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
@@ -68,16 +67,18 @@ class MusicControls(View):
                     self.play_next()
                 elif self.autoplay:
                     try:
+                        video_id = url.split("v=")[-1].split("&")[0]
                         with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
-                            related = ydl.extract_info(f"https://www.youtube.com/watch?v={url.split('v=')[-1]}", download=False)
-                            entries = related.get("entries") or related.get("related_videos") or []
-                            if entries:
-                                next_id = entries[0]['id'] if isinstance(entries[0], dict) else entries[0].get('id')
-                                if next_id:
-                                    autoplay_url = f"https://www.youtube.com/watch?v={next_id}"
-                                    info = ydl.extract_info(autoplay_url, download=False)
-                                    queues.setdefault(self.guild_id, []).append((info["url"], info.get("title", "AutoTrack")))
-                                    self.play_next()
+                            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+                            related = info.get("related_videos", [])
+                            if related:
+                                next_id = related[0]["id"]
+                                autoplay_url = f"https://www.youtube.com/watch?v={next_id}"
+                                next_info = ydl.extract_info(autoplay_url, download=False)
+                                queues.setdefault(self.guild_id, []).append((next_info["url"], next_info.get("title", "AutoTrack")))
+                                self.play_next()
+                    except Exception as e:
+                        print(f"[Autoplay Error] {e}")
                     except Exception as e:
                         print(f"[Autoplay Error] {e}")
 
@@ -214,5 +215,7 @@ async def on_message(message):
 
 
 bot.run(TOKEN)
+
+
 
 
