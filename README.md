@@ -12,7 +12,6 @@ This bot is legally distinct btw (my code better).
 - Loop & Playlist Loop
 - Pause, Skip, Previous track
 - Show current queue
-- Autoplay 
 - Built with gooning in mind
 
 ## Requirements
