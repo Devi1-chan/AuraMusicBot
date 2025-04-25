@@ -10,7 +10,7 @@ This bot is legally distinct btw (my code better).
 
 - YouTube playback (it steals it from youtube using ur own cookies)
 - Loop & Playlist Loop
-- Pause, ⏭ Skip, ⏮ Previous track
+- Pause, Skip, Previous track
 - Show current queue
 - Autoplay 
 - Built with gooning in mind
