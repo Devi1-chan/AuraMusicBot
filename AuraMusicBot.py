@@ -9,6 +9,22 @@ bot = discord.Client(intents=intents)
 TOKEN = 'Put Bot Token Here' #Token here
 ffmpeg_path = "ffmpeg.exe"
 
+import shutil
+import sys
+
+def check_ffmpeg_installed():
+    if shutil.which("ffmpeg") is None:
+        print("\n[ERROR] ffmpeg not found! Install it using one of these commands:")
+        print(" - winget install --id Gyan.FFmpeg -e")
+        print(" - OR choco install ffmpeg (if using Chocolatey)")
+        print(" - OR scoop install ffmpeg (if using Scoop)")
+        sys.exit(1)  # Exit program if ffmpeg is missing
+    else:
+        print("[INFO] ffmpeg is installed and ready.")
+
+# ===== Usage =====
+check_ffmpeg_installed()
+
 # yt-dlp config
 ytdl_format_options = {
     'format': 'bestaudio',
